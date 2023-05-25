@@ -1,0 +1,390 @@
+global function AiSpectre_Init
+global function NPCCarriesBattery
+global function CanSpectreRodeo
+global function SpectreBatteryThink
+global function ResetRodeo
+
+void function AiSpectre_Init()
+{
+	//AddDamageCallback( "npc_spectre", SpectreOnDamaged )
+	AddDeathCallback( "npc_spectre", SpectreOnDeath )
+	AddSpawnCallback( "npc_spectre", SpectreOnSpawned )
+	AddSpawnCallback( "npc_spectre", SimulateRodeo )
+
+	#if !SPECTRE_CHATTER_MP_ENABLED
+		AddCallback_OnPlayerKilled( SpectreChatter_OnPlayerKilled )
+		AddCallback_OnNPCKilled( SpectreChatter_OnNPCKilled )
+	#endif
+	
+	AddCallback_NPCLeeched( ResetRodeoAfterLeech )
+}
+
+void function SpectreOnSpawned( entity npc )
+{
+	#if MP
+	if ( npc.HasKey( "carrying_battery" ) )
+	{
+		if ( npc.kv.carrying_battery == "1" )
+		{
+			npc.ai.shouldDropBattery = true
+		}
+	}
+	else
+	{
+		npc.ai.shouldDropBattery = false
+	}
+	#endif
+	//printt( npc , "spawned!")
+	//printt( "spectre.ai.shouldDropBattery: ", npc.ai.shouldDropBattery )
+	//printt( "Spectre Angles: ", npc.GetAngles() )
+}
+
+void function SpectreOnDeath( entity npc, var damageInfo )
+{
+	if ( !IsValidHeadShot( damageInfo, npc ) )
+		return
+
+	// Set these so cl_player knows to kill the eye glow and play the right SFX
+	DamageInfo_AddCustomDamageType( damageInfo, DF_HEADSHOT )
+	DamageInfo_AddCustomDamageType( damageInfo, DF_KILLSHOT )
+//	EmitSoundOnEntityExceptToPlayer( npc, attacker, "SuicideSpectre.BulletImpact_HeadShot_3P_vs_3P" )
+
+	int bodyGroupIndex = npc.FindBodyGroup( "removableHead" )
+	int stateIndex = 1  // 0 = show, 1 = hide
+	npc.SetBodygroup( bodyGroupIndex, stateIndex )
+
+	DamageInfo_SetDamage( damageInfo, npc.GetMaxHealth() )
+
+}
+
+// All damage to spectres comes here for modification and then either branches out to other npc types (Suicide, etc) for custom stuff or it just continues like normal.
+void function SpectreOnDamaged( entity npc, var damageInfo )
+{
+}
+
+void function SpectreChatter_OnPlayerKilled( entity playerKilled, entity attacker, var damageInfo )
+{
+	if ( !IsSpectre( attacker ) )
+		return
+
+	if ( playerKilled.IsTitan() )
+		thread PlaySpectreChatterAfterDelay( attacker, "spectre_gs_gruntkillstitan_02_1" )
+	else
+		thread PlaySpectreChatterAfterDelay( attacker, "spectre_gs_killenemypilot_01_1" )
+
+}
+
+void function SpectreChatter_OnNPCKilled( entity npcKilled, entity attacker, var damageInfo )
+{
+	if ( IsSpectre( npcKilled ) )
+	{
+		string deadGuySquadName = expect string( npcKilled.kv.squadname )
+		if ( deadGuySquadName == "" )
+			return
+
+		array<entity> squad = GetNPCArrayBySquad( deadGuySquadName )
+
+		entity speakingSquadMate = null
+
+		foreach( squadMate in squad )
+		{
+			if ( IsSpectre( squadMate ) )
+			{
+				speakingSquadMate = squadMate
+				break
+			}
+		}
+		if ( speakingSquadMate == null )
+			return
+
+		if ( squad.len() == 1 )
+			thread PlaySpectreChatterAfterDelay( speakingSquadMate, "spectre_gs_squaddeplete_01_1" )
+		else if ( squad.len() > 0  )
+			thread PlaySpectreChatterAfterDelay( speakingSquadMate, "spectre_gs_allygrundown_05_1" )
+	}
+	else
+	{
+		if ( !IsSpectre( attacker ) )
+			return
+
+		if ( npcKilled.IsTitan() )
+			thread PlaySpectreChatterAfterDelay( attacker, "spectre_gs_gruntkillstitan_02_1" )
+	}
+}
+
+void function PlaySpectreChatterAfterDelay( entity spectre, string chatterLine, float delay = 0.3 )
+{
+	wait delay
+
+	if ( !IsAlive( spectre ) ) //Really this is just an optimization thing, if the spectre is dead no point in running the same check for every player nearby in ShouldPlaySpectreChatterMPLine
+		return
+
+	PlaySpectreChatterToAll( chatterLine, spectre )
+}
+
+void function NPCCarriesBattery( entity npc )
+{
+	entity battery = Rodeo_CreateBatteryPack()
+	battery.SetParent( npc, "BATTERY_ATTACH" )
+	battery.MarkAsNonMovingAttachment()
+	thread SpectreBatteryThink( npc, battery )
+}
+
+void function SpectreBatteryThink( entity npc, entity battery )
+{
+	battery.EndSignal( "OnDestroy" )
+	npc.EndSignal( "OnDestroy" )
+
+	OnThreadEnd(
+	function() : ( battery )
+		{
+			if ( IsValid( battery ) )
+			{
+				battery.ClearParent()
+				battery.SetAngles( < 0,0,0 > )
+				battery.SetVelocity( < 0,0,200 > )
+				battery.Minimap_AlwaysShow( TEAM_MILITIA, null )
+				battery.Minimap_AlwaysShow( TEAM_IMC, null )
+			}
+		}
+	)
+
+	npc.WaitSignal( "OnDeath" )
+}
+
+/************************************************************************************************\
+
+		SPECTRE RODEO
+
+\************************************************************************************************/
+const SPECTRE_RODEO_MAX_DIST_SQR = 202500 // 450 sqrd
+const SPECTRE_RODEO_MIN_DIST_SQR = 40000 // 200 sqrd
+
+//HACK! -> DO NOT SHIP - this should be in code
+void function SimulateRodeo( entity spectre )
+{
+	//printt( "SimulateRodeo" )
+	thread SimulateRodeoThread( spectre )
+}
+
+void function SimulateRodeoThread( entity spectre )
+{
+	spectre.EndSignal( "OnDestroy" )
+	spectre.EndSignal( "OnDeath" )
+	spectre.EndSignal( "OnLeeched" )
+
+	//printt( "SimulateRodeoThread" )
+	wait 1.0
+	if ( spectre.GetAISettingsName() != "npc_spectre" )
+		return
+
+	while( 1 )
+	{
+		wait 1.0
+		//printt( "SimulateRodeoThread Loop" )
+
+		if ( spectre.ai.shouldDropBattery && GetConVarInt( "sv_spectre_rodeo_allow_friendly" ) != 0 )
+		{
+			bool StartedFriendlyRodeo = SpectreFriendlyRodeo( spectre )
+			if ( StartedFriendlyRodeo )
+				return
+		}
+
+		entity enemy = spectre.GetEnemy()
+		if ( !IsAlive( enemy ) )
+			continue
+
+		if ( !enemy.IsTitan() )
+			continue
+
+		entity titan = spectre.GetEnemy()
+		Assert( titan.IsTitan() )
+		Assert( IsAlive( titan ) )
+
+		if ( !CanSpectreRodeo( spectre, titan ) )
+			continue
+
+		thread SpectreRodeo( spectre, titan )
+		return
+	}
+}
+
+bool function SpectreFriendlyRodeo( entity spectre )
+{
+	int spectreTeam = spectre.GetTeam()
+
+	array<entity> titans = GetTitanArrayOfTeam( spectreTeam )
+	if ( titans.len() == 0 )
+		return false
+
+	entity closestTitan = GetClosest( titans, spectre.GetOrigin() )
+			
+	if ( !IsAlive( closestTitan ) )
+		return false
+
+	if ( !closestTitan.IsTitan() )
+		return false
+			
+	if ( !CanSpectreRodeo( spectre, closestTitan ) )
+		return false
+
+	entity closestTitanSoul = closestTitan.GetTitanSoul()
+
+	if ( closestTitan.GetHealth() == closestTitan.GetMaxHealth() && closestTitanSoul.GetShieldHealth() == closestTitanSoul.GetShieldHealthMax() )
+	{
+		//printt( spectre, "SpectreFriendlyRodeo Attept Failed! Titan health and shield are full!" )
+		return false
+	}
+
+	thread SpectreRodeo( spectre, closestTitan )
+	return true
+}
+
+bool function CanSpectreRodeo( entity spectre, entity titan )
+{
+	if ( !titan.IsTitan() )
+	{
+		//printt("CanSpectreRodeo Attept Failed! Target is not Titan!")
+		return false
+	}
+	
+	float distanceFromTitan = DistanceSqr( titan.GetOrigin(), spectre.GetOrigin() )
+	if ( distanceFromTitan > SPECTRE_RODEO_MAX_DIST_SQR )
+	{
+		//printt("CanSpectreRodeo Attept Failed! Target is too far!")
+		return false
+	}
+
+	if ( distanceFromTitan < SPECTRE_RODEO_MIN_DIST_SQR )
+	{
+		//printt("CanSpectreRodeo Attept Failed! Target is too close!")
+		return false
+	}
+
+	if ( GetRodeoPilot( titan ) )
+	{
+		//printt("CanSpectreRodeo Attept Failed! Target is already rodeoed!")
+		return false
+	}
+
+	if ( !spectre.IsInterruptable() )
+	{
+		//printt("CanSpectreRodeo Attept Failed! Spectre is busy right now!")
+		return false
+	}
+
+	if ( spectre.GetParent() != null )
+	{
+		//printt("CanSpectreRodeo Attept Failed! Spectre is attached to something!")
+		return false
+	}
+	
+	// Titan looks at spectre
+	if ( !IsFacingEnemy( titan, spectre, 30 ) )
+	{
+		//printt("CanSpectreRodeo Attept Failed! Titan is not faced correctly!")
+		return false
+	}
+
+	//printt("Spectre can Rodeo!")
+	return true
+}
+
+void function ResetRodeoAfterLeech( entity spectre, entity player )
+{
+	// printt( spectre, "ResetRodeoAfterLeech" )
+	// Switch minimap visibility for battery
+	entity battery = spectre.FirstMoveChild()
+	entity nextChildEnt
+	while ( battery != null )
+	{
+		if ( battery.GetClassName() == "item_titan_battery" )
+		{
+			battery.Minimap_AlwaysShow( TEAM_MILITIA, null )
+			battery.Minimap_AlwaysShow( TEAM_IMC, null )
+			break
+		}
+
+		nextChildEnt = battery.NextMovePeer()
+		battery = nextChildEnt
+	}
+
+	ResetRodeo( spectre )
+}
+
+void function ResetRodeo( entity spectre )
+{
+	// If spectre has got battery, try to deliver it to friendly titan.
+	// printt( spectre, "ResetRodeo" )
+	if ( spectre.ai.shouldDropBattery )
+	{
+		spectre.DisableNPCFlag( NPC_ALLOW_PATROL | NPC_ALLOW_INVESTIGATE | NPC_ALLOW_FLEE | NPC_ALLOW_HAND_SIGNALS | NPC_CROUCH_COMBAT )
+		vector assaultPos
+
+		// If spectre has owner, prioritize his titan.
+		if ( spectre.GetBossPlayer() != null )
+		{
+			entity player = spectre.GetBossPlayer()
+
+			if ( IsValidPlayer( player ) )
+			{
+				if ( !player.IsTitan() )
+				{
+					entity titan = player.GetPetTitan()
+
+					if ( IsAlive( titan ) )
+					{
+						NPCFollowsNPC( spectre, titan )
+					}
+				}
+			}
+		}
+		else
+		{
+			int spectreTeam = spectre.GetTeam()
+			array<entity> titans = GetTitanArrayOfTeam( spectreTeam )
+			if ( titans.len() > 0 )
+			{
+				entity closestTitan = GetClosest( titans, spectre.GetOrigin() )
+				assaultPos = closestTitan.GetOrigin() + < 200, 0, 0 >
+			}
+		}
+
+		if ( assaultPos != Vector(0,0,0) )
+		{
+			spectre.AssaultPoint( assaultPos )
+			spectre.AssaultSetFightRadius( 0 )
+			spectre.AssaultSetGoalRadius( 400 )
+			spectre.AssaultSetArrivalTolerance( 300 )
+			spectre.WaitSignal( "OnFinishedAssault", "OnEnterGoalRadius" )
+			spectre.EnableNPCFlag(  NPC_ALLOW_PATROL | NPC_ALLOW_INVESTIGATE| NPC_ALLOW_HAND_SIGNALS | NPC_CROUCH_COMBAT )
+			SimulateRodeo( spectre )
+			return
+		}
+	}
+
+	// Something resets following behavior, let's put it back.
+	if ( spectre.GetBossPlayer() != null )
+	{
+		entity player = spectre.GetBossPlayer()
+
+		if ( IsValidPlayer( player ) )
+			NPCFollowsPlayer( spectre, player )
+	}
+
+	spectre.EnableNPCFlag( NPC_ALLOW_PATROL | NPC_ALLOW_INVESTIGATE | NPC_ALLOW_FLEE | NPC_ALLOW_HAND_SIGNALS | NPC_CROUCH_COMBAT )
+		
+	float resetTime = GetConVarFloat( "sv_spectre_rodeo_reset_time" )
+	if ( resetTime < 0.0 )
+		wait 90.0 // Default TFO/TF1 value from Frontier Defense gamemode.
+	else
+		wait resetTime
+
+	// "Yo, Buddy. You still alive?"
+	if ( IsValid( spectre ) && IsAlive( spectre ) )
+	{
+		spectre.DisableNPCFlag( NPC_ALLOW_FLEE )
+		//printt( "Launch SimulateRodeo" )
+		SimulateRodeo( spectre )
+	}
+}

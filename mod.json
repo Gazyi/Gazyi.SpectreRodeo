@@ -1,0 +1,30 @@
+{
+   "Name": "Gazyi.SpectreRodeo",
+   "Description": "Spectres can Rodeo Titans like in TF1.",
+   "LoadPriority": 2,
+   "RequiredOnClient": true,
+   "Version": "1.0.0",
+   "ConVars": 
+   [
+      {
+         "Name": "sv_spectre_rodeo_reset",
+         "DefaultValue": "1",
+         "HelpString": "Allow Spectres to try rodeoing Titans again after successful attempt."
+      },
+      {
+         "Name": "sv_spectre_rodeo_reset_time",
+         "DefaultValue": "10",
+         "HelpString": "Time before Spectre start trying to rodeo Titans again after successful attempt."
+      },
+      {
+         "Name": "sv_spectre_rodeo_allow_friendly",
+         "DefaultValue": "1",
+         "HelpString": "Allow Spectres with battery to rodeo friendly Titans."
+      },
+      {
+         "Name": "sv_spectre_rodeo_nuke_grenade",
+         "DefaultValue": "0",
+         "HelpString": "Spectres will always use Core Overload grenades when rodeoing."
+      }
+   ]
+}
