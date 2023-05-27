@@ -14,7 +14,7 @@
       {
          "Name": "sv_spectre_rodeo_reset_time",
          "DefaultValue": "10",
-         "HelpString": "Time before Spectre start trying to rodeo Titans again after successful attempt."
+         "HelpString": "Time before Spectre starts trying to rodeo Titans again after successful attempt."
       },
       {
          "Name": "sv_spectre_rodeo_allow_friendly",
