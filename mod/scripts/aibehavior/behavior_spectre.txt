@@ -24,7 +24,7 @@ Selector_End
 
 
 Selector Combat
-	//SelectSchedule_RodeoAttack
+	SelectSchedule_RodeoAttack
 	SelectSchedule_AntiMassiveEnemy
 
 	SelectSchedule_MeleeAttack

@@ -4,9 +4,12 @@ global function CanSpectreRodeo
 global function SpectreBatteryThink
 global function ResetRodeo
 
+// NPC flags
+global int NPC_RODEO_ATTACK = 1 << 25
+
 void function AiSpectre_Init()
 {
-	//AddDamageCallback( "npc_spectre", SpectreOnDamaged )
+	AddDamageCallback( "npc_spectre", SpectreOnDamaged )
 	AddDeathCallback( "npc_spectre", SpectreOnDeath )
 	AddSpawnCallback( "npc_spectre", SpectreOnSpawned )
 	AddSpawnCallback( "npc_spectre", SimulateRodeo )
@@ -41,6 +44,9 @@ void function SpectreOnSpawned( entity npc )
 
 void function SpectreOnDeath( entity npc, var damageInfo )
 {
+	if ( npc.GetNPCFlag( NPC_RODEO_ATTACK ) && npc.ContextAction_IsBusy() )
+		npc.ContextAction_ClearBusy()
+	
 	if ( !IsValidHeadShot( damageInfo, npc ) )
 		return
 
@@ -60,6 +66,15 @@ void function SpectreOnDeath( entity npc, var damageInfo )
 // All damage to spectres comes here for modification and then either branches out to other npc types (Suicide, etc) for custom stuff or it just continues like normal.
 void function SpectreOnDamaged( entity npc, var damageInfo )
 {
+	// No pain anims when rodeoing
+	if ( npc.GetNPCFlag( NPC_RODEO_ATTACK ) )
+	{
+		#if DEV
+		printt( npc, " Rodeo attack - don't play pain anims!" )
+		#endif
+		DamageInfo_AddDamageFlags( damageInfo, DAMAGEFLAG_NOPAIN )
+		DamageInfo_SetFlinchDirection( damageInfo, FLINCH_DIRECTION_NO_FLINCH )
+	}
 }
 
 void function SpectreChatter_OnPlayerKilled( entity playerKilled, entity attacker, var damageInfo )

@@ -864,7 +864,8 @@ void function TryBatteryStyleRodeo( entity rodeoPilot, entity rodeoTitan, entity
 		thread FirstPersonSequence( sequence, rodeoPilot, rodeoTitan )
 
 		RodeoPilotPullsOutWeapon( rodeoPilot, rodeoTitan, rodeoTitanType )
-		entity weakpointHitbox = CreateClassicRodeoWeakpoint( rodeoPilot, rodeoTitan )
+		//entity weakpointHitbox = CreateClassicRodeoWeakpoint( rodeoPilot, rodeoTitan )
+		entity weakpointHitbox = CreateClassicRodeoWeakpoint( rodeoPilot, titanSoul )
 
 		OnThreadEnd( function() : ( weakpointHitbox )
 		{
@@ -2498,14 +2499,12 @@ bool function ClientCommand_TryNukeGrenade( entity player, array<string> args )
 
 function SpectreBeginsTitanRodeo( entity spectre, RodeoPackageStruct rodeoPackage, entity rodeoTitan )
 {
-	//printt("SpectreBeginsTitanRodeo func")
 	entity soul = rodeoTitan.GetTitanSoul()
 	Assert( IsValid( soul ) )
 
 	bool sameTeam = spectre.GetTeam() == rodeoTitan.GetTeam()
 	spectre.Signal( "RodeoStarted" )
 
-	//printt( "spectre.ai.shouldDropBattery: ", spectre.ai.shouldDropBattery )
 	bool SpectreHadBatteryAtStartOfRodeo = spectre.ai.shouldDropBattery == true
 
 	OnThreadEnd(
@@ -2563,7 +2562,9 @@ function SpectreBeginsTitanRodeo( entity spectre, RodeoPackageStruct rodeoPackag
 				spectre.UseSequenceBounds( false )
 				spectre.SetEfficientMode( false )
 				spectre.EnableNPCFlag( NPC_CROUCH_COMBAT | NPC_ALLOW_FLEE )
-				spectre.DisableNPCFlag( NPC_DISABLE_SENSING | NPC_RAGDOLL_IMMEDIATE | NPC_NO_GESTURE_PAIN | NPC_NO_PAIN )
+				spectre.DisableNPCFlag( NPC_DISABLE_SENSING | NPC_RAGDOLL_IMMEDIATE | NPC_NO_GESTURE_PAIN | NPC_NO_PAIN | NPC_AIM_DIRECT_AT_ENEMY | NPC_RODEO_ATTACK )
+				spectre.SetActivityModifier( ACT_MODIFIER_STAGGER, true )
+				spectre.SetCapabilityFlag( bits_CAP_MOVE_TRAVERSE, true )
 				spectre.GetActiveWeapon().Show()
 				// Fix for angles.
 				vector fixangles = spectre.GetAngles()
@@ -2586,7 +2587,6 @@ function SpectreBeginsTitanRodeo( entity spectre, RodeoPackageStruct rodeoPackag
 					spectre.s.TempBatteryModel = null
 				}
 
-				//printt( "spectre.ai.shouldDropBattery: ", spectre.ai.shouldDropBattery )
 				StopSoundOnEntity( spectre, rodeoPackage.cockpitSound )
 				StopSoundOnEntity( spectre, rodeoPackage.worldSound )
 
@@ -2617,8 +2617,10 @@ function SpectreBeginsTitanRodeo( entity spectre, RodeoPackageStruct rodeoPackag
 
 	spectre.GetActiveWeapon().Hide()
 	spectre.SetEfficientMode( true )
-	spectre.EnableNPCFlag( NPC_DISABLE_SENSING | NPC_RAGDOLL_IMMEDIATE )
+	spectre.EnableNPCFlag( NPC_DISABLE_SENSING | NPC_RAGDOLL_IMMEDIATE | NPC_NO_GESTURE_PAIN | NPC_NO_PAIN )
 	spectre.DisableNPCFlag( NPC_CROUCH_COMBAT )
+	spectre.SetActivityModifier( ACT_MODIFIER_STAGGER, false ) // Doesn't stop EMP grenade stagger.
+	spectre.SetCapabilityFlag( bits_CAP_MOVE_TRAVERSE, false )
 	spectre.UseSequenceBounds( true )
 	DisableLeeching( spectre )
 
@@ -2629,7 +2631,6 @@ function SpectreBeginsTitanRodeo( entity spectre, RodeoPackageStruct rodeoPackag
 
 	soul.soul.batteryMovedDown = false
 
-	//printt( "spectre.ai.shouldDropBattery: ", spectre.ai.shouldDropBattery )
 	if ( SpectreShouldThrowGrenadeInHatch( spectre ) ) //Either spectre is going to apply a battery, or it's going to throw a grenade. In either case, we want the battery to move
 	{
 		Rodeo_MoveBatteryDown( soul )
@@ -2644,7 +2645,6 @@ function SpectreBeginsTitanRodeo( entity spectre, RodeoPackageStruct rodeoPackag
 
 	waitthread SpectreClimbsIntoRodeoPosition( spectre, rodeoTitan, rodeoPackage )
 
-	//printt("SpectreClimbsIntoRodeoPosition func end.")
 	SetForceDrawWhileParented( spectre, false )
 
 	// There has been a wait, verify things are still valid.
@@ -2661,9 +2661,6 @@ function SpectreBeginsTitanRodeo( entity spectre, RodeoPackageStruct rodeoPackag
 
 void function SpectreTryBatteryStyleRodeo( entity spectre, entity rodeoTitan, entity titanSoul, RodeoPackageStruct rodeoPackage )
 {
-	//printt("SpectreTryBatteryStyleRodeo func")
-	//printt( "spectre.ai.shouldDropBattery: ", spectre.ai.shouldDropBattery )
-
 	titanSoul.EndSignal( "OnTitanDeath" )
 
 	string rodeoTitanType = rodeoPackage.rodeoTargetType
@@ -2689,8 +2686,7 @@ void function SpectreTryBatteryStyleRodeo( entity spectre, entity rodeoTitan, en
 	}
 	#endif
 
-	// bool classicRodeo = MP && GetCurrentPlaylistVarInt( "classic_rodeo", 0 ) == 1
-	bool classicRodeo = false // R1 style rodeo is broken for now.
+	bool classicRodeo = MP && GetCurrentPlaylistVarInt( "classic_rodeo", 0 ) == 1
 
 	if ( SpectreShouldThrowGrenadeInHatch( spectre ) )
 	{
@@ -2701,38 +2697,59 @@ void function SpectreTryBatteryStyleRodeo( entity spectre, entity rodeoTitan, en
 	{
 		waitthread SpectreRemovesBatteryPack( spectre, rodeoTitan, titanSoul, rodeoPackage ) //This ends rodeo at the end of the sequence
 	}
-	
-	//printt( "spectre.ai.shouldDropBattery: ", spectre.ai.shouldDropBattery )
+
+	// script printt(Entities_FindByClassname(null, "npc_spectre"))
+	// script PlayerEarnMeter_AddOwnedFrac( GetEntByIndex(1), 1 )
 	if ( classicRodeo )
 	{
+		/*
 		printt("Spectre start shooting hull.")
-		SpectreRodeoBatteryRemoval_ShowBattery( spectre ) // hide battery, will be shown at the end of a battery removal rodeo
-
+		spectre.GetActiveWeapon().Show()
+		//This is default R1 style rodeo, with the panel ripped and ready to be shot at
+		string attackAnim = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_back_right_idle" )
+		spectre.SetAttackAnim( attackAnim )
+		string thirdPersonAnimIdle = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_back_right_idle" )
+		spectre.ContextAction_SetBusy()
+		waitthread PlayAnimGravity( spectre, thirdPersonAnimIdle, rodeoTitan, "hijack" )
+		spectre.SetIdleAnim( thirdPersonAnimIdle )
+		spectre.Anim_Stop()
+		*/
+		/*
+		//SpectreRodeoBatteryRemoval_ShowBattery( spectre ) // hide battery, will be shown at the end of a battery removal rodeo
 		spectre.GetActiveWeapon().Show()
 		//This is default R1 style rodeo, with the panel ripped and ready to be shot at
 		string attackAnim = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_panel_fire" )
+		//string attackAnim = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_back_right_idle" )
 		spectre.SetAttackAnim( attackAnim )
-
 		//string thirdPersonAnimIdle = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_panel_aim_idle" )
-		string thirdPersonAnimIdle = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_back_right_idle" )
+		//string thirdPersonAnimIdle = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_panel_aim_idle" )
+		string thirdPersonAnimIdle = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_panel_aim_idle" )
 		spectre.SetIdleAnim( thirdPersonAnimIdle )
-
 		// HACK for classic rodeo to bring spectre back original to position.
 		// Check again for switching from player titan to NPC
 		rodeoTitan = titanSoul.GetTitan()
-		//printt( "Snap back to rodeo idle position." )
+		/*
+		if ( !spectre.ContextAction_IsActive() && !spectre.ContextAction_IsBusy() )
+			spectre.ContextAction_SetBusy() // Breaks death behavior.
+		
+		thread PlayAnimGravity( spectre, thirdPersonAnimIdle, rodeoTitan, "hijack" )
+		spectre.ContextAction_ClearBusy()
+		/*
+		printt( "Snap back to rodeo idle position." )
 		FirstPersonSequenceStruct idleRodeoSequence
+		idleRodeoSequence.attachment = "hijack"
 		idleRodeoSequence.blendTime = 0.5
 		idleRodeoSequence.attachment = rodeoPackage.attachPoint
 		idleRodeoSequence.thirdPersonAnim = thirdPersonAnimIdle
 		idleRodeoSequence.useAnimatedRefAttachment = true
 		//idleRodeoSequence.teleport = true
 		thread FirstPersonSequence( idleRodeoSequence, spectre, rodeoTitan )
+		*/
+		/*
+		spectre.SetActivityModifier( ACT_MODIFIER_STAGGER, false ) // Doesn't stop EMP grenade stagger.
+		spectre.SetCapabilityFlag( bits_CAP_MOVE_TRAVERSE, false )
 		// NPC Flags do nothing. Disable pain and stagger anims.
-		spectre.ContextAction_SetBusy()
-		//printt( "Done!" )
-
-		#if SERVER
+		printt( "Creating titan weakspot." )
 		// Check again for switching from player titan to NPC
 		rodeoTitan = titanSoul.GetTitan()
 		entity weakpointHitbox = CreateClassicRodeoWeakpoint( spectre, rodeoTitan )
@@ -2741,11 +2758,72 @@ void function SpectreTryBatteryStyleRodeo( entity spectre, entity rodeoTitan, en
 			if ( IsValid( weakpointHitbox ) )
 				weakpointHitbox.Destroy()
 		})
-
+		spectre.ClearAllEnemyMemory()
 		spectre.SetEnemy( weakpointHitbox )
-		#endif
+		spectre.LockEnemy( weakpointHitbox )
+		spectre.UseSequenceBounds( false )
+		spectre.SetEfficientMode( false )
+		spectre.DisableNPCFlag( NPC_DISABLE_SENSING )
 		spectre.DoRodeoAttack( true )
-
+		printt( "Removing temp battery model." )
+		if ( spectre.s.TempBatteryModel != null )
+		{
+			var tempProp = spectre.s.TempBatteryModel
+			tempProp.Destroy()
+			spectre.s.TempBatteryModel = null
+		}
+		*/
+		/*
+		rodeoTitan = titanSoul.GetTitan()
+		entity weakpointHitbox = CreateClassicRodeoWeakpoint( spectre, rodeoTitan )
+		weakpointHitbox.kv.modelscale = 4
+		printt( "Creating titan weakspot." )
+		OnThreadEnd( function() : ( weakpointHitbox )
+		{
+			if ( IsValid( weakpointHitbox ) )
+				weakpointHitbox.Destroy()
+		})
+		spectre.ClearAllEnemyMemory()
+		spectre.SetEnemy( rodeoTitan )
+		spectre.LockEnemy( rodeoTitan )
+		//spectre.ContextAction_ClearBusy()
+		*/
+		//string attackAnim = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_panel_fire" ) // TF1 attack anim has different origin and doesn't fit aim_idle anim.
+		string attackAnim = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_panel_aim_idle" )
+		spectre.SetAttackAnim( attackAnim )
+		string thirdPersonAnimIdle = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_panel_aim_idle" )
+		spectre.SetIdleAnim( thirdPersonAnimIdle )
+		// Check for Titan entity change
+		rodeoTitan = titanSoul.GetTitan()
+		// Force correct Spectre position on Titan
+		thread PlayAnimGravity( spectre, thirdPersonAnimIdle, rodeoTitan, "hijack" )
+		WaitFrame()
+		spectre.Anim_Stop()
+		#if DEV
+		printt( "Creating titan weakspot." )
+		#endif
+		entity weakpointHitbox = CreateClassicRodeoWeakpoint( spectre, titanSoul )
+		weakpointHitbox.SetScriptName( "SpectreTitanWeakspot" + titanSoul.entindex().tostring() )
+		weakpointHitbox.EnableAttackableByAI( AI_PRIORITY_NO_THREAT, 0, AI_AP_FLAG_NONE ) // To make sure that other NPCs don't try to shoot it.
+		#if DEV
+		printt( "Weakspot:", weakpointHitbox )
+		#endif
+		OnThreadEnd( function() : ( weakpointHitbox )
+		{
+			if ( IsValid( weakpointHitbox ) )
+				weakpointHitbox.Destroy()
+		})
+		spectre.GetActiveWeapon().Show()
+		spectre.SetEfficientMode( false )
+		spectre.ClearAllEnemyMemory()
+		spectre.SetEnemy( weakpointHitbox )
+		spectre.LockEnemy( weakpointHitbox )
+		spectre.EnableNPCFlag( NPC_RODEO_ATTACK | NPC_AIM_DIRECT_AT_ENEMY )
+		spectre.DisableNPCFlag( NPC_DISABLE_SENSING )
+		spectre.DoRodeoAttack( true )
+		#if DEV
+		printt("Spectre start shooting hull.")
+		#endif
 		WaitForever()
 	}
 	else
@@ -2757,13 +2835,11 @@ void function SpectreTryBatteryStyleRodeo( entity spectre, entity rodeoTitan, en
 
 bool function SpectreShouldThrowGrenadeInHatch( entity spectre )
 {
-	//printt( "SpectreShouldThrowGrenadeInHatch" )
 	bool batteryPullingDisabled = (GetCurrentPlaylistVarInt( "rodeo_battery_disable_pulls_from_titans", 0 ) == 1)
 
 	if ( batteryPullingDisabled )
 		return true
 
-	//printt( "spectre.ai.shouldDropBattery: " + spectre.ai.shouldDropBattery )
 	if ( spectre.ai.shouldDropBattery )
 		return true
 
@@ -2772,8 +2848,6 @@ bool function SpectreShouldThrowGrenadeInHatch( entity spectre )
 
 void function SpectreRodeoBatteryRemoval_ShowBattery( entity spectre )
 {
-	//printt( "SpectreRodeoBatteryRemoval_ShowBattery" )
-	//printt( "spectre.ai.shouldDropBattery: ", spectre.ai.shouldDropBattery )
 	var tempProp = spectre.s.TempBatteryModel
 	tempProp.Show()
 
@@ -2791,9 +2865,6 @@ void function SpectreRodeoBatteryRemoval_ShowBattery( entity spectre )
 
 void function SpectreRemovesBatteryPack( entity spectre, entity rodeoTitan, entity titanSoul, RodeoPackageStruct rodeoPackage )
 {
-	//printt( "SpectreRemovesBatteryPack" )
-	//printt( "spectre.ai.shouldDropBattery: ", spectre.ai.shouldDropBattery )
-
 	string titanType = GetSoulTitanSubClass( titanSoul )
 
 	RodeoRiderSequenceStruct dataStruct
@@ -2863,8 +2934,6 @@ void function SpectreRemovesBatteryPack( entity spectre, entity rodeoTitan, enti
 
 void function SpectreRodeoBatteryPackRemovalDamage( entity spectre, entity victim, entity victimTitanSoul )
 {
-	//printt( "SpectreRodeoBatteryPackRemovalDamage" )
-	//printt( "spectre.ai.shouldDropBattery: ", spectre.ai.shouldDropBattery )
 	victimTitanSoul.e.lastRodeoAttacker = spectre
 
 	int damageAmount = GetSegmentHealthForTitan( victim )

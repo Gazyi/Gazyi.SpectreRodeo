@@ -399,20 +399,44 @@ function TitanBecomesPilot( entity player, entity titan )
 	TransferHealth( player, titan )
 	//Transfer children before player becomes pilot model
 	player.TransferChildrenTo( titan )
-	// HACK for fixing parented NPC not receiving player damage after disembark.
+	
+	// HACK for fixing parented entities not receiving player damage after disembark.
 	entity childEnt = titan.FirstMoveChild()
 	entity nextChildEnt
+	entity spectreRider
+	entity titanWeakspot
 	while ( childEnt != null )
-	{
+	{	
 		if ( IsSpectre( childEnt ) )
 		{
-			entity parentEnt = childEnt.GetParent()
-			childEnt.ClearParent()
-			childEnt.SetParent( parentEnt, "hijack", true )
+			spectreRider = childEnt
+			printt( titan, " - Found spectre rider: ", spectreRider )
+		}
+
+		if ( childEnt.GetScriptName().len() > 0 && childEnt.GetScriptName().find("SpectreTitanWeakspot") != -1 )
+		{
+			titanWeakspot = childEnt
+			printt( titan, " - Found weakspot entity: ", titanWeakspot )
 		}
 
 		nextChildEnt = childEnt.NextMovePeer()
 		childEnt = nextChildEnt
+	}
+	#if DEV
+	printt( titan, " - Re-parenting Titan entities:" )
+	#endif
+	entity parentEnt
+	if ( IsValid( titanWeakspot ) )
+	{
+		parentEnt = titanWeakspot.GetParent()
+		titanWeakspot.ClearParent()
+		titanWeakspot.SetParent( parentEnt, "RODEO_BATTERY", true )
+	}
+	if ( IsValid( spectreRider ) && IsAlive( spectreRider ) )
+	{
+		parentEnt = spectreRider.GetParent()
+		spectreRider.ClearParent()
+		spectreRider.SetParent( parentEnt, "hijack", true )
 	}
 	// HACK END
 
