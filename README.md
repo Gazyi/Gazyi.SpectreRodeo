@@ -18,9 +18,9 @@ sv_spectre_rodeo_reset (Default value: 1) - Allow Spectres to try rodeoing Titan
 sv_spectre_rodeo_reset_time (Default value: 10) - Time in seconds before Spectre starts trying to rodeo Titans again after successful attempt.
 sv_spectre_rodeo_allow_friendly (Default value: 1) - Allow Spectres with battery to rodeo friendly Titans.
 sv_spectre_rodeo_nuke_grenade (Default value: 0) - Spectres will use Core Overload grenades when rodeoing (Nuke Rodeo from Frontier Defense).
+sv_spectre_rodeo_classic (Default value: 0) - Force Spectres to use classic rodeo, unless they're using Core Overload grenades.
 ```
 
 ### To-Do List
-- Classic rodeo support.
 - Non-frontal rodeo.
 - Animation fixes and code refactoring.
