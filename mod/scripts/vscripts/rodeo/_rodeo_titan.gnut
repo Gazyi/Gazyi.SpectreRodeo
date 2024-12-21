@@ -2691,7 +2691,7 @@ void function SpectreTryBatteryStyleRodeo( entity spectre, entity rodeoTitan, en
 	}
 	#endif
 
-	bool classicRodeo = MP && GetCurrentPlaylistVarInt( "classic_rodeo", 0 ) == 1
+	bool classicRodeo = MP && ( GetCurrentPlaylistVarInt( "classic_rodeo", 0 ) == 1 || GetConVarInt( "sv_spectre_rodeo_classic" ) != 0 )
 
 	if ( SpectreShouldThrowGrenadeInHatch( spectre ) )
 	{
