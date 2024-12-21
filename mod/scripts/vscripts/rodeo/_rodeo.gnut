@@ -551,14 +551,12 @@ void function OnTitanDoomed_Rodeo( entity titan, var damageInfo )
 // Spectre Rodeo
 function SpectreRodeo( entity spectre, entity titan )
 {
-	//printt("SpectreRodeo func")
 	RodeoPackageStruct package = GetRodeoPackageForPlayer( spectre, titan )
 	Assert ( package != null )
 
 	SpectreBeginsRodeo( spectre, package, titan )
 }
 
-// function SpectreBeginsRodeo( spectre, rodeoPackage, titan )
 function SpectreBeginsRodeo( entity spectre, RodeoPackageStruct rodeoPackage, entity rodeoTarget )
 {
 	Assert( spectre.GetParent() == null )
@@ -566,7 +564,6 @@ function SpectreBeginsRodeo( entity spectre, RodeoPackageStruct rodeoPackage, en
 	Assert( IsValid( rodeoTarget ) )
 	Assert( IsSpectre(spectre) )
 
-	//printt("SpectreBeginsRodeo func")
 	if ( rodeoTarget.IsTitan() )
 		SpectreBeginsTitanRodeo( spectre, rodeoPackage, rodeoTarget )
 }
@@ -641,6 +638,11 @@ void function SpectreClimbsIntoRodeoPosition( entity spectre, entity rodeoTarget
 		// Check for switching from player titan to NPC
 		rodeoTarget = soul.GetTitan()
 		rodeoPackage = GetRodeoPackageForPlayer( spectre, rodeoTarget )
+
+		#if DEV
+		printt( "rodeoDirection: ", rodeoPackage.rodeoDirection )
+		printt( "Method: ", rodeoPackage.method )
+		#endif
 	}
 	
 	EmitDifferentSoundsOnEntityForPlayerAndWorld( rodeoPackage.cockpitSound, rodeoPackage.worldSound, spectre, rodeoTarget )

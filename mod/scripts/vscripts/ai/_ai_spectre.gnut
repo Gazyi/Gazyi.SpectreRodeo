@@ -37,9 +37,6 @@ void function SpectreOnSpawned( entity npc )
 		npc.ai.shouldDropBattery = false
 	}
 	#endif
-	//printt( npc , "spawned!")
-	//printt( "spectre.ai.shouldDropBattery: ", npc.ai.shouldDropBattery )
-	//printt( "Spectre Angles: ", npc.GetAngles() )
 }
 
 void function SpectreOnDeath( entity npc, var damageInfo )
@@ -178,7 +175,6 @@ const SPECTRE_RODEO_MIN_DIST_SQR = 40000 // 200 sqrd
 //HACK! -> DO NOT SHIP - this should be in code
 void function SimulateRodeo( entity spectre )
 {
-	//printt( "SimulateRodeo" )
 	thread SimulateRodeoThread( spectre )
 }
 
@@ -188,7 +184,6 @@ void function SimulateRodeoThread( entity spectre )
 	spectre.EndSignal( "OnDeath" )
 	spectre.EndSignal( "OnLeeched" )
 
-	//printt( "SimulateRodeoThread" )
 	wait 1.0
 	if ( spectre.GetAISettingsName() != "npc_spectre" )
 		return
@@ -196,7 +191,6 @@ void function SimulateRodeoThread( entity spectre )
 	while( 1 )
 	{
 		wait 1.0
-		//printt( "SimulateRodeoThread Loop" )
 
 		if ( spectre.ai.shouldDropBattery && GetConVarInt( "sv_spectre_rodeo_allow_friendly" ) != 0 )
 		{
@@ -233,23 +227,20 @@ bool function SpectreFriendlyRodeo( entity spectre )
 		return false
 
 	entity closestTitan = GetClosest( titans, spectre.GetOrigin() )
-			
+
 	if ( !IsAlive( closestTitan ) )
 		return false
 
 	if ( !closestTitan.IsTitan() )
 		return false
-			
+
 	if ( !CanSpectreRodeo( spectre, closestTitan ) )
 		return false
 
 	entity closestTitanSoul = closestTitan.GetTitanSoul()
 
 	if ( closestTitan.GetHealth() == closestTitan.GetMaxHealth() && closestTitanSoul.GetShieldHealth() == closestTitanSoul.GetShieldHealthMax() )
-	{
-		//printt( spectre, "SpectreFriendlyRodeo Attept Failed! Titan health and shield are full!" )
 		return false
-	}
 
 	thread SpectreRodeo( spectre, closestTitan )
 	return true
@@ -258,56 +249,36 @@ bool function SpectreFriendlyRodeo( entity spectre )
 bool function CanSpectreRodeo( entity spectre, entity titan )
 {
 	if ( !titan.IsTitan() )
-	{
-		//printt("CanSpectreRodeo Attept Failed! Target is not Titan!")
 		return false
-	}
 	
 	float distanceFromTitan = DistanceSqr( titan.GetOrigin(), spectre.GetOrigin() )
 	if ( distanceFromTitan > SPECTRE_RODEO_MAX_DIST_SQR )
-	{
-		//printt("CanSpectreRodeo Attept Failed! Target is too far!")
 		return false
-	}
 
 	if ( distanceFromTitan < SPECTRE_RODEO_MIN_DIST_SQR )
-	{
-		//printt("CanSpectreRodeo Attept Failed! Target is too close!")
 		return false
-	}
 
 	if ( GetRodeoPilot( titan ) )
-	{
-		//printt("CanSpectreRodeo Attept Failed! Target is already rodeoed!")
 		return false
-	}
 
 	if ( !spectre.IsInterruptable() )
-	{
-		//printt("CanSpectreRodeo Attept Failed! Spectre is busy right now!")
 		return false
-	}
+
+	if ( spectre.ContextAction_IsActive() )
+		return false
 
 	if ( spectre.GetParent() != null )
-	{
-		//printt("CanSpectreRodeo Attept Failed! Spectre is attached to something!")
 		return false
-	}
 	
 	// Titan looks at spectre
 	if ( !IsFacingEnemy( titan, spectre, 30 ) )
-	{
-		//printt("CanSpectreRodeo Attept Failed! Titan is not faced correctly!")
 		return false
-	}
 
-	//printt("Spectre can Rodeo!")
 	return true
 }
 
 void function ResetRodeoAfterLeech( entity spectre, entity player )
 {
-	// printt( spectre, "ResetRodeoAfterLeech" )
 	// Switch minimap visibility for battery
 	entity battery = spectre.FirstMoveChild()
 	entity nextChildEnt
@@ -330,7 +301,6 @@ void function ResetRodeoAfterLeech( entity spectre, entity player )
 void function ResetRodeo( entity spectre )
 {
 	// If spectre has got battery, try to deliver it to friendly titan.
-	// printt( spectre, "ResetRodeo" )
 	if ( spectre.ai.shouldDropBattery )
 	{
 		spectre.DisableNPCFlag( NPC_ALLOW_PATROL | NPC_ALLOW_INVESTIGATE | NPC_ALLOW_FLEE | NPC_ALLOW_HAND_SIGNALS | NPC_CROUCH_COMBAT )
@@ -399,7 +369,6 @@ void function ResetRodeo( entity spectre )
 	if ( IsValid( spectre ) && IsAlive( spectre ) )
 	{
 		spectre.DisableNPCFlag( NPC_ALLOW_FLEE )
-		//printt( "Launch SimulateRodeo" )
 		SimulateRodeo( spectre )
 	}
 }

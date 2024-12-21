@@ -381,6 +381,9 @@ function TitanEjectPlayer( entity ejectTitan, bool instant = false ) //TODO: Thi
 
 	if ( e.nuclearPayload )
 	{
+		#if DEV
+		printt( ejectTitan, " - Nuclear explosion!" )
+		#endif
 		e.needToClearNukeFX <- false
 		e.nukeFXInfoTarget <- CreateEntity( "info_target" )
 		e.nukeFXInfoTarget.kv.spawnflags = SF_INFOTARGET_ALWAYS_TRANSMIT_TO_CLIENT

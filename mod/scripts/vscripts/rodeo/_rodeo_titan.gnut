@@ -48,6 +48,7 @@ global function Rodeo_TakeBatteryAwayFromPilot
 #if DEV
 global function SetDebugRodeoPrint
 global function GetDebugRodeoPrint
+global function DevSpectreRodeo
 #endif
 
 #if MP
@@ -135,6 +136,9 @@ void function RodeoTitan_Init()
 	AddCallback_OnPlayerKilled( Rodeo_DropAllBatteriesOnDeath )
 	AddCallback_OnTouchHealthKit( "item_titan_battery", Rodeo_OnTouchBatteryPack )
 	AddCallback_OnPilotBecomesTitan( Rodeo_ApplyAllBatteriesOnEmbark )
+
+	// Cut Passives
+	level.titanPassives[ ePassives.PAS_NUCLEAR_CORE ] <- true
 
 	//AddSoulInitFunc( Rodeo_HealthDecayThink )
 
@@ -2548,13 +2552,13 @@ function SpectreBeginsTitanRodeo( entity spectre, RodeoPackageStruct rodeoPackag
 			if ( IsValid( spectre ) && IsAlive ( spectre ) )
 			{
 				spectre.Signal( "RodeoOver" )
+				#if DEV
 				printt( spectre + ": RodeoOver" )
+				#endif
 				spectre.SetNameVisibleToFriendly( true ) // show name of the pilot again
 				spectre.SetNameVisibleToEnemy( true )
-
 				spectre.ClearParent()
 				spectre.Anim_Stop()
-
 				spectre.ClearAttackAnim()
 				spectre.ClearIdleAnim()
 				EnableLeeching( spectre )
@@ -2568,7 +2572,6 @@ function SpectreBeginsTitanRodeo( entity spectre, RodeoPackageStruct rodeoPackag
 				spectre.GetActiveWeapon().Show()
 				// Fix for angles.
 				vector fixangles = spectre.GetAngles()
-				//printt( "Spectre Angles: ", fixangles )
 				fixangles.x = 0
 				fixangles.z = 0
 				spectre.SetAngles( fixangles )
@@ -2593,7 +2596,9 @@ function SpectreBeginsTitanRodeo( entity spectre, RodeoPackageStruct rodeoPackag
 				// Reset spectre rodeo ability after some time
 				if ( GetConVarInt( "sv_spectre_rodeo_reset" ) != 0 )
 				{
+					#if DEV
 					printt( spectre, "Resetting rodeo!" )
+					#endif
 					thread ResetRodeo( spectre )
 				}
 			}
@@ -2702,92 +2707,6 @@ void function SpectreTryBatteryStyleRodeo( entity spectre, entity rodeoTitan, en
 	// script PlayerEarnMeter_AddOwnedFrac( GetEntByIndex(1), 1 )
 	if ( classicRodeo )
 	{
-		/*
-		printt("Spectre start shooting hull.")
-		spectre.GetActiveWeapon().Show()
-		//This is default R1 style rodeo, with the panel ripped and ready to be shot at
-		string attackAnim = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_back_right_idle" )
-		spectre.SetAttackAnim( attackAnim )
-		string thirdPersonAnimIdle = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_back_right_idle" )
-		spectre.ContextAction_SetBusy()
-		waitthread PlayAnimGravity( spectre, thirdPersonAnimIdle, rodeoTitan, "hijack" )
-		spectre.SetIdleAnim( thirdPersonAnimIdle )
-		spectre.Anim_Stop()
-		*/
-		/*
-		//SpectreRodeoBatteryRemoval_ShowBattery( spectre ) // hide battery, will be shown at the end of a battery removal rodeo
-		spectre.GetActiveWeapon().Show()
-		//This is default R1 style rodeo, with the panel ripped and ready to be shot at
-		string attackAnim = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_panel_fire" )
-		//string attackAnim = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_back_right_idle" )
-		spectre.SetAttackAnim( attackAnim )
-		//string thirdPersonAnimIdle = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_panel_aim_idle" )
-		//string thirdPersonAnimIdle = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_panel_aim_idle" )
-		string thirdPersonAnimIdle = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_panel_aim_idle" )
-		spectre.SetIdleAnim( thirdPersonAnimIdle )
-		// HACK for classic rodeo to bring spectre back original to position.
-		// Check again for switching from player titan to NPC
-		rodeoTitan = titanSoul.GetTitan()
-		/*
-		if ( !spectre.ContextAction_IsActive() && !spectre.ContextAction_IsBusy() )
-			spectre.ContextAction_SetBusy() // Breaks death behavior.
-		
-		thread PlayAnimGravity( spectre, thirdPersonAnimIdle, rodeoTitan, "hijack" )
-		spectre.ContextAction_ClearBusy()
-		/*
-		printt( "Snap back to rodeo idle position." )
-		FirstPersonSequenceStruct idleRodeoSequence
-		idleRodeoSequence.attachment = "hijack"
-		idleRodeoSequence.blendTime = 0.5
-		idleRodeoSequence.attachment = rodeoPackage.attachPoint
-		idleRodeoSequence.thirdPersonAnim = thirdPersonAnimIdle
-		idleRodeoSequence.useAnimatedRefAttachment = true
-		//idleRodeoSequence.teleport = true
-		thread FirstPersonSequence( idleRodeoSequence, spectre, rodeoTitan )
-		*/
-		/*
-		spectre.SetActivityModifier( ACT_MODIFIER_STAGGER, false ) // Doesn't stop EMP grenade stagger.
-		spectre.SetCapabilityFlag( bits_CAP_MOVE_TRAVERSE, false )
-		// NPC Flags do nothing. Disable pain and stagger anims.
-		printt( "Creating titan weakspot." )
-		// Check again for switching from player titan to NPC
-		rodeoTitan = titanSoul.GetTitan()
-		entity weakpointHitbox = CreateClassicRodeoWeakpoint( spectre, rodeoTitan )
-		OnThreadEnd( function() : ( weakpointHitbox )
-		{
-			if ( IsValid( weakpointHitbox ) )
-				weakpointHitbox.Destroy()
-		})
-		spectre.ClearAllEnemyMemory()
-		spectre.SetEnemy( weakpointHitbox )
-		spectre.LockEnemy( weakpointHitbox )
-		spectre.UseSequenceBounds( false )
-		spectre.SetEfficientMode( false )
-		spectre.DisableNPCFlag( NPC_DISABLE_SENSING )
-		spectre.DoRodeoAttack( true )
-		printt( "Removing temp battery model." )
-		if ( spectre.s.TempBatteryModel != null )
-		{
-			var tempProp = spectre.s.TempBatteryModel
-			tempProp.Destroy()
-			spectre.s.TempBatteryModel = null
-		}
-		*/
-		/*
-		rodeoTitan = titanSoul.GetTitan()
-		entity weakpointHitbox = CreateClassicRodeoWeakpoint( spectre, rodeoTitan )
-		weakpointHitbox.kv.modelscale = 4
-		printt( "Creating titan weakspot." )
-		OnThreadEnd( function() : ( weakpointHitbox )
-		{
-			if ( IsValid( weakpointHitbox ) )
-				weakpointHitbox.Destroy()
-		})
-		spectre.ClearAllEnemyMemory()
-		spectre.SetEnemy( rodeoTitan )
-		spectre.LockEnemy( rodeoTitan )
-		//spectre.ContextAction_ClearBusy()
-		*/
 		//string attackAnim = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_panel_fire" ) // TF1 attack anim has different origin and doesn't fit aim_idle anim.
 		string attackAnim = GetAnimFromAlias( rodeoTitanType, "pt_rodeo_panel_aim_idle" )
 		spectre.SetAttackAnim( attackAnim )
@@ -2798,7 +2717,7 @@ void function SpectreTryBatteryStyleRodeo( entity spectre, entity rodeoTitan, en
 		// Force correct Spectre position on Titan
 		thread PlayAnimGravity( spectre, thirdPersonAnimIdle, rodeoTitan, "hijack" )
 		WaitFrame()
-		spectre.Anim_Stop()
+		spectre.Anim_Stop() // Force stop anim, because it's looping.
 		#if DEV
 		printt( "Creating titan weakspot." )
 		#endif
@@ -2975,7 +2894,6 @@ void function SpectreRodeoBatteryPackRemovalDamage( entity spectre, entity victi
 
 void function Rodeo_SpectrePicksUpBattery( entity spectre, entity battery )
 {
-	//printt( "Rodeo_SpectrePicksUpBattery" )
 	battery.SetParent( spectre, "BATTERY_ATTACH" )
 	
 	if ( spectre.GetTeam() == TEAM_MILITIA )
@@ -2990,8 +2908,6 @@ void function Rodeo_SpectrePicksUpBattery( entity spectre, entity battery )
 
 void function SpectreRodeoBatteryRemoval( entity spectre )
 {
-	//printt( "SpectreRodeoBatteryRemoval" )
-	//printt( "spectre.ai.shouldDropBattery: ", spectre.ai.shouldDropBattery )
 	entity titan = spectre.GetParent()
 	if ( !IsValid( titan ) )
 		return
@@ -3003,8 +2919,6 @@ void function SpectreRodeoBatteryRemoval( entity spectre )
 	soul.SetLastRodeoHitTime( Time() )
 
 	SpectreRodeoBatteryPackRemovalDamage( spectre, titan, soul )
-	//printt( "SpectreRodeoBatteryPackRemovalDamage end" )
-	//printt( "spectre.ai.shouldDropBattery: ", spectre.ai.shouldDropBattery )
 
 	if ( spectre.s.TempBatteryModel && !IsAlive( titan ) )
 	{
@@ -3018,9 +2932,7 @@ void function SpectreRodeoBatteryRemoval( entity spectre )
 	if ( !SpectreHadBattery )
 	{
 		entity battery = Rodeo_CreateBatteryPack( titan )
-		//printt( "Created Battery: ", battery )
 		Rodeo_SpectrePicksUpBattery( spectre, battery )
-		//printt( "spectre.ai.shouldDropBattery: ", spectre.ai.shouldDropBattery )
 
 		if ( titan.IsPlayer() )
 		{
@@ -3142,7 +3054,6 @@ void function SpectreAppliesBatteryPack( entity spectre, entity rodeoTitan, enti
 		entity nextChildEnt
 		while ( battery != null )
 		{
-			//printt( battery )
 			if ( battery.GetClassName() == "item_titan_battery" )
 			{
 				battery.Hide() //Hide it because the animation has a battery model already
@@ -3217,7 +3128,6 @@ void function SpectreAppliesBatteryPack( entity spectre, entity rodeoTitan, enti
 
 	string attachment = "hijack"
 	string batteryApplicationAnim = GetAnimFromAlias( titanType, "pt_" + animAlias )  // default, old style
-	//printt( "Battery Application Anim: " + batteryApplicationAnim )
 	local time = spectre.GetSequenceDuration( batteryApplicationAnim )
 
 	EmitDifferentSoundsOnEntityForPlayerAndWorld( dataStruct.interiorSound, dataStruct.exteriorSound, spectre, rodeoTitan ) //Play sound on spectre instead of panel
@@ -3274,10 +3184,10 @@ void function SpectreRodeoForceNuke( entity spectre )
 	}
 	else
 		NPC_SetNuclearPayload( titan )
-
+	
 	if ( titan.ContextAction_IsBusy() )
 		titan.ContextAction_ClearBusy()
-	thread TitanEjectPlayer( titan, true )
+	thread TitanEjectPlayer( titan )
 
 	if ( IsAlive( spectre ) )
 		spectre.Die( titan, titan, { force = Vector( 0.4, 0.2, 0.3 ), scriptType = DF_GIB, damageSourceId = eDamageSourceId.titan_explosion } )
@@ -3340,4 +3250,31 @@ entity function Rodeo_TakeBatteryAwayFromSpectre( entity spectre )
 	battery.SetVelocity( < 0, 0, 1 > )
 	PutEntityInSafeSpot( battery, spectre, null, spectre.GetOrigin(), battery.GetOrigin() ) //This might cause thread of execution to jump somewhere else, see 209362
 	return battery
+}
+
+void function DevSpectreRodeo()
+{
+	entity player = GetPlayerArray()[ 0 ]
+	vector vec = AnglesToForward( player.GetAngles() )
+
+	vector origin = player.GetOrigin() + ( vec * 500 )
+	vector angles = player.GetAngles() + Vector( 0,90,0 )
+	entity milSpectre = CreateSpectre( TEAM_MILITIA, origin, angles )
+	SetSpawnOption_AISettings( milSpectre, "npc_spectre" )
+	DispatchSpawn( milSpectre )
+
+	vec = AnglesToForward( angles )
+	origin = origin + ( vec * 400 )
+	float yaw = angles.y + 180
+	if ( yaw > 360 )
+		yaw -= 360
+	array<string> aiSettings = GetAllowedTitanAISettings()
+	aiSettings.randomize()
+	entity imcTitan = DEV_AITitanDuelSpawn( player, TEAM_IMC, origin, Vector( 0, yaw, 0 ), aiSettings[0] )
+	imcTitan.EnableNPCFlag( NPC_IGNORE_ALL )
+	imcTitan.DisableNPCFlag( NPC_ALLOW_FLEE | NPC_DIRECTIONAL_MELEE | NPC_ALLOW_INVESTIGATE )
+	imcTitan.SetCapabilityFlag( bits_CAP_INNATE_MELEE_ATTACK1 | bits_CAP_INNATE_MELEE_ATTACK2 | bits_CAP_SYNCED_MELEE_ATTACK | bits_CAP_WEAPON_RANGE_ATTACK1 , false )
+	imcTitan.AssaultSetGoalRadius( imcTitan.GetMinGoalRadius() )
+	imcTitan.AssaultPointClamped( imcTitan.GetOrigin() )
+	imcTitan.AssaultSetFightRadius( 0 )
 }
