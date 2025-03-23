@@ -9,7 +9,7 @@ $includemodel "humans/pete/pete_scripted_r1.mdl"
 $includemodel "humans/pete/pilot_shared.mdl"
 ```
 
-When Titan faces Spectre in close range, it will jump on titan and steal battery or throw grenade into hatch if it has one.
+When Titan faces Spectre in close range, it will jump on titan and steal battery or throw grenade into hatch if it has one. If Classic rodeo is enabled, Spectre will stay on Titan and shoot Titan's weakspot.
 Spectres with battery will try to bring it to friendly random Titan. Hacked Spectres prioritize Titan of player who hacked them.
 
 ### Server ConVars
